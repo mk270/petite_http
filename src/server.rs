@@ -7,6 +7,8 @@ use tiny_http::{Method, Request, Response, Header};
 pub use html_escape::{encode_text as html_escape};
 pub use url::{Url};
 
+use super::{content_types};
+
 /// A normal HTTP response.
 // TODO: Redirect.
 #[derive(Debug)]
@@ -79,6 +81,14 @@ pub trait Handle {
 
 // ----------------------------------------------------------------------------
 
+/// The name of the HTTP Content-Type header.
+const CONTENT_TYPE: &'static [u8] = b"Content-Type";
+
+/// Construct an HTTP header.
+fn header(key: &'static [u8], value: &'static [u8]) -> tiny_http::Header {
+    Header::from_bytes(key, value).unwrap() // depends only on data fixed at compile time
+}
+
 struct Server<H: Handle> {
     /// Web server.
     pub server: tiny_http::Server,
@@ -130,14 +140,6 @@ impl<H: Handle> Server<H> {
         }
     }
 
-    /// Construct an HTTP header.
-    fn header(key: &str, value: &str) -> tiny_http::Header {
-        Header::from_bytes(
-            key.as_bytes(),
-            value.as_bytes(),
-        ).unwrap() // depends only on data fixed at compile time
-    }
-
     /// Handle requests for ever.
     fn handle_requests(&self) -> ! {
         for mut request in self.server.incoming_requests() {
@@ -146,11 +148,11 @@ impl<H: Handle> Server<H> {
                     request.respond(Response::from_file(file))
                 },
                 Ok(HttpOkay::Html(text)) => {
-                    let header = Self::header("Content-Type", "text/html");
+                    let header = header(CONTENT_TYPE, content_types::HTML);
                     request.respond(Response::from_string(text).with_header(header))
                 },
                 Ok(HttpOkay::Jpeg(data)) => {
-                    let header = Self::header("Content-Type", "image/jpeg");
+                    let header = header(CONTENT_TYPE, content_types::JPEG);
                     request.respond(Response::from_data(data).with_header(header))
                 },
                 Err(HttpError::Invalid) => {

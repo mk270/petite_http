@@ -2,6 +2,8 @@ use std::{fmt};
 use std::error::{Error};
 use std::ffi::{OsStr, OsString};
 
+pub mod content_types;
+
 mod server;
 pub use server::{
     html_escape, Url,
