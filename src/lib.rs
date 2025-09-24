@@ -4,6 +4,8 @@ use std::ffi::{OsStr, OsString};
 
 pub mod content_types;
 
+pub mod html;
+
 mod server;
 pub use server::{
     html_escape, Url,

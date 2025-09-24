@@ -4,7 +4,6 @@ use std::fs::{File};
 
 use tiny_http::{Method, Request, Response, Header};
 
-pub use html_escape::{encode_text as html_escape};
 pub use url::{Url};
 
 use super::{content_types};
