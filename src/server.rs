@@ -13,9 +13,17 @@ use super::{content_types};
 // TODO: Redirect.
 #[derive(Debug)]
 pub enum HttpOkay {
+    /// A static file.
     File(File),
+
+    /// Dynamic HTML.
     Html(String),
-    Jpeg(Vec<u8>),
+
+    /// Dynamic character data.
+    Text {data: String, content_type: &'static [u8]},
+
+    /// Dynamic binary data.
+    Bytes {data: Vec<u8>, content_type: &'static [u8]},
 }
 
 /// An erroneous HTTP response.
@@ -151,8 +159,12 @@ impl<H: Handle> Server<H> {
                     let header = header(CONTENT_TYPE, content_types::HTML);
                     request.respond(Response::from_string(text).with_header(header))
                 },
-                Ok(HttpOkay::Jpeg(data)) => {
-                    let header = header(CONTENT_TYPE, content_types::JPEG);
+                Ok(HttpOkay::Text {data, content_type}) => {
+                    let header = header(CONTENT_TYPE, content_type);
+                    request.respond(Response::from_string(data).with_header(header))
+                },
+                Ok(HttpOkay::Bytes {data, content_type}) => {
+                    let header = header(CONTENT_TYPE, content_type);
                     request.respond(Response::from_data(data).with_header(header))
                 },
                 Err(HttpError::Invalid) => {
