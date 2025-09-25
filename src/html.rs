@@ -7,11 +7,12 @@ pub use html_escape::{encode_text as escape};
 /// Safely include a value in some HTML, replacing special characters with
 /// escape sequences.
 ///
-/// Types that implement [`std::Fmt::Display`], including strings, numbers, and
+/// Types that implement [`std::fmt::Display`], including strings, numbers, and
 /// other primitive types, [`Box<str>`] and [`Rc<str>`], will be HTML-escaped.
 ///
 /// This trait is dyn-safe, i.e. values of type `dyn Escape` are allowed.
 ///
+/// [`Rc<str>`]: std::rc::Rc<str>
 /// ```
 /// use petite_http::html::{Escape, Raw};
 /// assert_eq!("this & that".to_html(), Raw("this &amp; that"));

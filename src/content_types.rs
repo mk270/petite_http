@@ -1,5 +1,5 @@
 //! Common `Content-Type` values, adapted from
-//! https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/MIME_types/Common_types
+//! [Mozilla's table](https://developer.mozilla.org/en-US/docs/Web/HTTP/Guides/MIME_types/Common_types)
 
 /// AAC audio
 pub const AAC: &'static [u8] = b"audio/aac";
