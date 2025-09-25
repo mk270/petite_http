@@ -19,7 +19,7 @@ pub use html_escape::{encode_text as escape};
 /// assert_eq!(Box::new("this & that").to_html(), Raw("this &amp; that"));
 /// assert_eq!(std::rc::Rc::new("this & that").to_html(), Raw("this &amp; that"));
 /// ```
-pub trait Escape {
+pub trait Escape: fmt::Debug {
     /// Append the escaped version of `self` to `out`.
     fn escape(&self, out: &mut dyn fmt::Write) -> fmt::Result;
 
@@ -31,7 +31,7 @@ pub trait Escape {
     }
 }
 
-impl<T: fmt::Display> Escape for T {
+impl<T: fmt::Display + fmt::Debug> Escape for T {
     fn escape(&self, out: &mut dyn fmt::Write) -> fmt::Result {
         out.write_str(escape(&format!("{}", self)).as_ref())
     }
@@ -58,7 +58,7 @@ impl<S: AsRef<str>, T: AsRef<str>> PartialEq<Raw<T>> for Raw<S> where S: Partial
     fn eq(&self, other: &Raw<T>) -> bool { self.0 == other.0 }
 }
 
-impl<S: AsRef<str>> Escape for Raw<S> {
+impl<S: AsRef<str> + fmt::Debug> Escape for Raw<S> {
     fn escape(&self, out: &mut dyn fmt::Write) -> fmt::Result {
         out.write_str(self.0.as_ref())
     }
@@ -88,6 +88,7 @@ macro_rules! include_html {
 ///     Raw("a=1&amp;b=2"),
 /// )
 /// ```
+#[derive(Debug)]
 pub struct Concat(pub Box<[Box<dyn Escape>]>);
 
 impl Escape for Concat {
@@ -113,6 +114,7 @@ impl Escape for Concat {
 /// let expected = Raw("<p>&lt;em&gt;User data&lt;/em&gt; is escaped!</p>");
 /// assert_eq!(observed, expected);
 /// ```
+#[derive(Debug)]
 pub struct Template(
     /// The template string: the invariant part of the HTML. This should
     /// already be correctly escaped. Consider using [`std::include_str`].

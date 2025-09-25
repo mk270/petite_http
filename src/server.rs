@@ -6,7 +6,7 @@ use tiny_http::{Method, Request, Response, Header};
 
 use url::{Url};
 
-use super::{content_types};
+use super::{content_types, html};
 
 /// A normal HTTP response.
 // TODO: Redirect.
@@ -16,7 +16,7 @@ pub enum HttpOkay {
     File(File),
 
     /// Dynamic HTML.
-    Html(String),
+    Html(Box<dyn html::Escape>),
 
     /// Dynamic character data.
     Text {data: String, content_type: &'static [u8]},
@@ -156,7 +156,8 @@ impl<H: Handle> Server<H> {
                 },
                 Ok(HttpOkay::Html(text)) => {
                     let header = header(CONTENT_TYPE, content_types::HTML);
-                    request.respond(Response::from_string(text).with_header(header))
+                    let html::Raw(escaped_text) = text.to_html();
+                    request.respond(Response::from_string(escaped_text).with_header(header))
                 },
                 Ok(HttpOkay::Text {data, content_type}) => {
                     let header = header(CONTENT_TYPE, content_type);
