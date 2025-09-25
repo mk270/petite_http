@@ -4,7 +4,7 @@ use std::fs::{File};
 
 use tiny_http::{Method, Request, Response, Header};
 
-pub use url::{Url};
+use url::{Url};
 
 use super::{content_types};
 
@@ -116,8 +116,8 @@ impl<H: Handle> Server<H> {
         let base_url = base_url.unwrap_or_else(|| server_url);
         Server {
             server: tiny_http::Server::http(server_address).expect("Could not create the web server"),
-            server_url: url::Url::parse(server_url).expect("Could not parse the server URL"),
-            _base_url: url::Url::parse(base_url).expect("Could not parse the base URL"),
+            server_url: Url::parse(server_url).expect("Could not parse the server URL"),
+            _base_url: Url::parse(base_url).expect("Could not parse the base URL"),
             handler,
         }
     }
