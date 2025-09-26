@@ -70,7 +70,7 @@ impl<S: AsRef<str> + fmt::Debug> Escape for Raw<S> {
 /// quantities of static HTML into your program.
 #[macro_export]
 macro_rules! include_html {
-    ($filename:expr) => ( Raw(include_str!($filename)) )
+    ($filename:expr) => ( crate::html::Raw(include_str!($filename)) )
 }
 
 // ----------------------------------------------------------------------------
