@@ -27,55 +27,56 @@ pub struct Demo {
 }
 
 impl Demo {
-    fn guest_book(&self) -> Box<dyn Escape> {
-        let visitors = self.visitors.keys().map(
-            |name| Box::new(Template(
-                r#"<li><a href="/visitor/{url_name}">{name}</a></li>"#,
-                Box::new([
-                    ("name", Box::new(name.clone())),
-                    ("url_name", Box::new(name.clone())), // FIXME: URL-encode
-                ]),
-            )) as Box<dyn Escape>
-        ).collect();
+    fn guest(name: &String) -> Box<dyn Escape> {
         Box::new(Template(
-            include_str!("guest_book.html"),
+            r#"<li><a href="/visitor/{url_name}">{name}</a></li>"#,
             Box::new([
-                ("visitors", Box::new(Concat(visitors))),
+                ("name", Box::new(name.clone())),
+                ("url_name", Box::new(name.clone())), // FIXME: URL-encode
             ]),
         ))
     }
 
-    fn greet(&self, params: Params) -> ph::Result {
+    fn guest_book(&self) -> Box<dyn Escape> {
+        Box::new(Template(
+            include_str!("guest_book.html"),
+            Box::new([
+                ("visitors", Box::new(Concat(self.visitors.keys().map(Self::guest).collect()))),
+            ]),
+        ))
+    }
+
+    fn greet(&self, params: Params) -> Box<dyn Escape> {
         let greeting = self.visitors.get(&params.name).unwrap().clone();
-        Ok(HttpOkay::Html(Box::new(Template(
+        Box::new(Template(
             include_str!("greet.html"),
             Box::new([
                 ("name", Box::new(params.name.clone())),
                 ("greeting", Box::new(greeting)),
                 ("guest_book", self.guest_book()),
             ]),
-        ))))
+        ))
     }
 
-    fn introduce(&self, params: Params) -> ph::Result {
-        Ok(HttpOkay::Html(Box::new(Template(
+    fn introduce(&self, params: Params) -> Box<dyn Escape> {
+        Box::new(Template(
             include_str!("introduce.html"),
             Box::new([
                 ("name", Box::new(params.name.clone())),
             ]),
-        ))))
+        ))
     }
 
-    fn visitor(&self, name: String) -> ph::Result {
+    fn visitor(&self, name: String) -> Box<dyn Escape> {
         let greeting = self.visitors.get(&name).unwrap().clone();
-        Ok(HttpOkay::Html(Box::new(Template(
+        Box::new(Template(
             include_str!("visitor.html"),
             Box::new([
                 ("name", Box::new(name.clone())),
                 ("greeting", Box::new(greeting.clone())),
                 ("guest_book", self.guest_book()),
             ]),
-        ))))
+        ))
 
     }
 }
@@ -93,9 +94,9 @@ impl ph::Handle for Demo {
             } else if page == "greet" {
                 if "" != params.name {
                     if self.visitors.contains_key(&params.name) {
-                        return self.greet(params);
+                        return Ok(HttpOkay::Html(self.greet(params)));
                     } else {
-                        return self.introduce(params);
+                        return Ok(HttpOkay::Html(self.introduce(params)));
                     }
                 }
             } else if page == "thank" {
@@ -106,7 +107,7 @@ impl ph::Handle for Demo {
             } else if page == "visitor" {
                 if let Some(name) = path_iter.next() {
                     if self.visitors.contains_key(&name) {
-                        return self.visitor(name);
+                        return Ok(HttpOkay::Html(self.visitor(name)));
                     } else {
                         return Err(HttpError::NotFound)
                     }
