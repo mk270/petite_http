@@ -8,3 +8,6 @@ tiny_http = "0.12"
 url = "2.4.1"
 url-escape = "0.1.1"
 html-escape = "0.2.13"
+
+[[example]]
+name = "demo"
