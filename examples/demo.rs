@@ -21,6 +21,8 @@ impl FromIterator<(String, String)> for Params {
     }
 }
 
+// ----------------------------------------------------------------------------
+
 #[derive(Default, Debug, Clone)]
 pub struct Demo {
     visitors: HashMap<String, String>,
@@ -47,7 +49,7 @@ impl Demo {
     }
 
     fn greet(&self, params: Params) -> Box<dyn Escape> {
-        let greeting = self.visitors.get(&params.name).unwrap().clone();
+        let greeting = self.visitors[&params.name].clone();
         Box::new(Template(
             include_str!("greet.html"),
             Box::new([
@@ -119,6 +121,8 @@ impl ph::Handle for Demo {
         }
     }
 }
+
+// ----------------------------------------------------------------------------
 
 fn main() {
     ph::start("localhost:8080".into(), None, Demo::default());
