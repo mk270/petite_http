@@ -7,7 +7,7 @@ pub mod content_types;
 pub mod html;
 
 mod server;
-pub use server::{HttpOkay, HttpError, Handle, start};
+pub use server::{HttpOkay, HttpError, Result, Handle, start};
 
 // ----------------------------------------------------------------------------
 
@@ -45,7 +45,7 @@ impl Error for DubiousFilename {}
 /// those that do are unlikely to need to be escaped in any context. This
 /// criterion is satisfied by many common filenames, including auto-generated
 /// filenames that are based on dates, hashes or sequence numbers.
-pub fn validate_name(s: &OsStr) -> Result<&str, DubiousFilename> {
+pub fn validate_name(s: &OsStr) -> std::result::Result<&str, DubiousFilename> {
     for b in s.as_encoded_bytes() {
         match b {
             b'0' .. b'9' => {},

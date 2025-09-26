@@ -9,7 +9,6 @@ use url::{Url};
 use super::{content_types, html};
 
 /// A normal HTTP response.
-// TODO: Redirect.
 #[derive(Debug)]
 pub enum HttpOkay {
     /// A static file.
@@ -25,7 +24,7 @@ pub enum HttpOkay {
     Bytes {data: Vec<u8>, content_type: &'static [u8]},
 
     /// Temporary redirect. The client should immediately request the given
-    /// URL, which is relative to the `base_url` of the [`Handler`].
+    /// URL, which is relative to the `base_url` of the [`Handle`].
     Redirect(String),
 }
 
@@ -61,6 +60,9 @@ impl_httperror_from!(std::io::Error);
 impl_httperror_from!(url::ParseError);
 impl_httperror_from!(crate::DubiousFilename);
 
+/// The return type of [`Handle::handle_get()`].
+pub type Result = std::result::Result<HttpOkay, HttpError>;
+
 // ----------------------------------------------------------------------------
 
 /// Implement this to write your web application.
@@ -84,10 +86,10 @@ pub trait Handle {
     /// characters such as `/` and `?`, and non-ASCII characters. Be careful if
     /// you construct filesystem paths from these `String`s.
     fn handle_get(
-        &self,
+        &mut self,
         path: Vec<String>,
         params: Self::Params,
-    ) -> Result<HttpOkay, HttpError>;
+    ) -> self::Result;
 }
 
 // ----------------------------------------------------------------------------
@@ -103,7 +105,7 @@ fn header(key: &'static [u8], value: &[u8]) -> tiny_http::Header {
     Header::from_bytes(key, value).unwrap() // depends only on data fixed at compile time
 }
 
-struct Server<H: Handle> {
+struct Server {
     /// Web server.
     pub server: tiny_http::Server,
 
@@ -112,13 +114,10 @@ struct Server<H: Handle> {
 
     /// The publicly visible external URL, which may differ from `server_url`.
     pub base_url: Url,
-
-    /// The application-specific state.
-    pub handler: H,
 }
 
-impl<H: Handle> Server<H> {
-    fn new(server_address: &str, base_url: Option<&str>, handler: H) -> Self {
+impl Server {
+    fn new(server_address: &str, base_url: Option<&str>) -> Self {
         let server_url = &format!("http://{}/", server_address);
         let base_url = base_url.unwrap_or_else(|| server_url);
         assert!(base_url.ends_with('/'));
@@ -126,11 +125,10 @@ impl<H: Handle> Server<H> {
             server: tiny_http::Server::http(server_address).expect("Could not create the web server"),
             server_url: Url::parse(server_url).expect("Could not parse the server URL"),
             base_url: Url::parse(base_url).expect("Could not parse the base URL"),
-            handler,
         }
     }
 
-    fn handle_request(&self, request: &mut Request) -> Result<HttpOkay, HttpError> {
+    fn handle_request(&self, handler: &mut impl Handle, request: &mut Request) -> self::Result {
         let request_url = self.server_url.join(request.url())?;
         let relative_url = self.server_url.make_relative(&request_url).unwrap(); // By construction.
         println!("{} {}", request.remote_addr().unwrap().ip(), relative_url);
@@ -150,15 +148,15 @@ impl<H: Handle> Server<H> {
         }
         // Dispatch based on HTTP method.
         match request.method() {
-            Method::Get => self.handler.handle_get(path, params),
+            Method::Get => handler.handle_get(path, params),
             _ => Err(HttpError::Invalid),
         }
     }
 
     /// Handle requests for ever.
-    fn handle_requests(&self) -> ! {
+    fn handle_requests(&self, mut handler: impl Handle) -> ! {
         for mut request in self.server.incoming_requests() {
-            match self.handle_request(&mut request) {
+            match self.handle_request(&mut handler, &mut request) {
                 Ok(HttpOkay::File(file)) => {
                     request.respond(Response::from_file(file))
                 },
@@ -213,7 +211,7 @@ impl<H: Handle> Server<H> {
 ///   If `server_address` is public, `base_url` can be omitted.
 /// - handler - Defines the web application.
 pub fn start(server_address: String, base_url: Option<String>, handler: impl Handle) -> ! {
-    let server = Server::new(&server_address, base_url.as_ref().map(AsRef::as_ref), handler);
+    let server = Server::new(&server_address, base_url.as_ref().map(AsRef::as_ref));
     println!("Listening on {}", server.server_url);
-    server.handle_requests();
+    server.handle_requests(handler);
 }
