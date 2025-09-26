@@ -23,6 +23,10 @@ pub enum HttpOkay {
 
     /// Dynamic binary data.
     Bytes {data: Vec<u8>, content_type: &'static [u8]},
+
+    /// Temporary redirect. The client should immediately request the given
+    /// URL, which is relative to the `base_url` of the [`Handler`].
+    Redirect(String),
 }
 
 /// An erroneous HTTP response.
@@ -88,11 +92,14 @@ pub trait Handle {
 
 // ----------------------------------------------------------------------------
 
-/// The name of the HTTP Content-Type header.
+/// The name of the HTTP `Content-Type` header.
 const CONTENT_TYPE: &'static [u8] = b"Content-Type";
 
+/// The name of the HTTP `Location` header.
+const LOCATION: &'static [u8] = b"Location";
+
 /// Construct an HTTP header.
-fn header(key: &'static [u8], value: &'static [u8]) -> tiny_http::Header {
+fn header(key: &'static [u8], value: &[u8]) -> tiny_http::Header {
     Header::from_bytes(key, value).unwrap() // depends only on data fixed at compile time
 }
 
@@ -104,7 +111,7 @@ struct Server<H: Handle> {
     pub server_url: Url,
 
     /// The publicly visible external URL, which may differ from `server_url`.
-    pub _base_url: Url,
+    pub base_url: Url,
 
     /// The application-specific state.
     pub handler: H,
@@ -114,10 +121,11 @@ impl<H: Handle> Server<H> {
     fn new(server_address: &str, base_url: Option<&str>, handler: H) -> Self {
         let server_url = &format!("http://{}/", server_address);
         let base_url = base_url.unwrap_or_else(|| server_url);
+        assert!(base_url.ends_with('/'));
         Server {
             server: tiny_http::Server::http(server_address).expect("Could not create the web server"),
             server_url: Url::parse(server_url).expect("Could not parse the server URL"),
-            _base_url: Url::parse(base_url).expect("Could not parse the base URL"),
+            base_url: Url::parse(base_url).expect("Could not parse the base URL"),
             handler,
         }
     }
@@ -167,6 +175,20 @@ impl<H: Handle> Server<H> {
                     let header = header(CONTENT_TYPE, content_type);
                     request.respond(Response::from_data(data).with_header(header))
                 },
+                Ok(HttpOkay::Redirect(relative_url)) => {
+                    match self.base_url.join(&relative_url) {
+                        Ok(absolute_url) => {
+                            request.respond(
+                                Response::from_string("Temporary Redirect").with_status_code(307)
+                                    .with_header(header(LOCATION, absolute_url.as_str().as_bytes()))
+                            )
+                        },
+                        Err(e) => {
+                            println!("Error contructing URL for redirect: {}", e);
+                            request.respond(Response::from_string("Server error").with_status_code(500))
+                        },
+                    }
+                },
                 Err(HttpError::Invalid) => {
                     request.respond(Response::from_string("Invalid request").with_status_code(400))
                 },
@@ -187,7 +209,7 @@ impl<H: Handle> Server<H> {
 ///
 /// - server_address - E.g. "127.0.0.1:8082".
 /// - base_url - The publicly visible URL of this web server, if any. It should
-///   end with `/`. This is useful for constructing absolute URLs.
+///   end with `/`. This is useful for constructing absolute URLs for HTTP redirects.
 ///   If `server_address` is public, `base_url` can be omitted.
 /// - handler - Defines the web application.
 pub fn start(server_address: String, base_url: Option<String>, handler: impl Handle) -> ! {
