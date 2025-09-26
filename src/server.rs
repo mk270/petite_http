@@ -19,7 +19,7 @@ pub enum HttpOkay {
     Html(Box<dyn html::Escape>),
 
     /// Dynamic character data.
-    Text {data: String, content_type: &'static [u8]},
+    Chars {data: String, content_type: &'static [u8]},
 
     /// Dynamic binary data.
     Bytes {data: Vec<u8>, content_type: &'static [u8]},
@@ -159,7 +159,7 @@ impl<H: Handle> Server<H> {
                     let html::Raw(escaped_text) = text.to_html();
                     request.respond(Response::from_string(escaped_text).with_header(header))
                 },
-                Ok(HttpOkay::Text {data, content_type}) => {
+                Ok(HttpOkay::Chars {data, content_type}) => {
                     let header = header(CONTENT_TYPE, content_type);
                     request.respond(Response::from_string(data).with_header(header))
                 },
