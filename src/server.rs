@@ -94,6 +94,33 @@ pub trait Handle {
 
 // ----------------------------------------------------------------------------
 
+/// An argument type of `Route::route`.
+pub trait Callback {
+        fn handle_with(self, handler: &mut impl Handle) -> self::Result;
+}
+
+
+pub trait Route {
+    /// Examine the URL path and select a handler.
+    ///
+    /// If the path is sufficient to generate a response, just return it. If,
+    /// say, the URL query parameters are needed to generate a response, then
+    /// pass an implementation of [`Handle`] to `callback`.
+    fn route(
+        &mut self,
+        path: &[String],
+        callback: impl Callback,
+    ) -> self::Result;
+}
+
+impl<H: Handle> Route for H {
+    fn route(&mut self, _path: &[String], callback: impl Callback) -> self::Result {
+        callback.handle_with(self)
+    }
+}
+
+// ----------------------------------------------------------------------------
+
 /// The name of the HTTP `Content-Type` header.
 const CONTENT_TYPE: &'static [u8] = b"Content-Type";
 
@@ -128,17 +155,14 @@ impl Server {
         }
     }
 
-    fn handle_request(&self, handler: &mut impl Handle, request: &mut Request) -> self::Result {
+    fn handle_request(
+        &self,
+        router: &mut impl Route,
+        request: &mut Request,
+    ) -> self::Result {
         let request_url = self.server_url.join(request.url())?;
         let relative_url = self.server_url.make_relative(&request_url).unwrap(); // By construction.
         println!("{} {}", request.remote_addr().unwrap().ip(), relative_url);
-        // Parse the query parameters.
-        let params = request_url.query_pairs().map(
-            |(key, value)| (
-                url_escape::decode(key.as_ref()).into_owned(),
-                url_escape::decode(value.as_ref()).into_owned(),
-            )
-        ).collect();
         // Parse the path segments.
         let mut path: Vec<String> = request_url.path_segments().ok_or(HttpError::Invalid)?.map(
             |s| url_escape::decode(s).into_owned()
@@ -146,17 +170,39 @@ impl Server {
         if let Some(last) = path.last() {
             if "" == last { path.pop(); }
         }
-        // Dispatch based on HTTP method.
-        match request.method() {
-            Method::Get => handler.handle_get(path, params),
-            _ => Err(HttpError::Invalid),
+        // Make a callback.
+        struct Callback {
+            path: Vec<String>,
+            method: Method,
+            url: Url,
         }
+        impl self::Callback for Callback {
+            fn handle_with(self, handler: &mut impl Handle) -> self::Result {
+                // Parse the query parameters.
+                let params = self.url.query_pairs().map(
+                    |(key, value)| (
+                        key.as_ref().into(),
+                        value.as_ref().into(),
+                    )
+                ).collect();
+                // Dispatch based on HTTP method.
+                match self.method {
+                    Method::Get => handler.handle_get(self.path, params),
+                    _ => Err(HttpError::Invalid),
+                }
+            }
+        }
+        router.route(&*path, Callback {
+            path: path.clone(),
+            method: request.method().clone(),
+            url: request_url,
+        })
     }
 
     /// Handle requests for ever.
-    fn handle_requests(&self, mut handler: impl Handle) -> ! {
+    fn handle_requests(&self, mut router: impl Route) -> ! {
         for mut request in self.server.incoming_requests() {
-            match self.handle_request(&mut handler, &mut request) {
+            match self.handle_request(&mut router, &mut request) {
                 Ok(HttpOkay::File(file)) => {
                     request.respond(Response::from_file(file))
                 },
@@ -210,8 +256,8 @@ impl Server {
 ///   end with `/`. This is useful for constructing absolute URLs for HTTP redirects.
 ///   If `server_address` is public, `base_url` can be omitted.
 /// - handler - Defines the web application.
-pub fn start(server_address: String, base_url: Option<String>, handler: impl Handle) -> ! {
+pub fn start(server_address: String, base_url: Option<String>, router: impl Route) -> ! {
     let server = Server::new(&server_address, base_url.as_ref().map(AsRef::as_ref));
     println!("Listening on {}", server.server_url);
-    server.handle_requests(handler);
+    server.handle_requests(router);
 }

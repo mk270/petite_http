@@ -7,7 +7,7 @@ pub mod content_types;
 pub mod html;
 
 mod server;
-pub use server::{HttpOkay, HttpError, Result, Handle, start};
+pub use server::{HttpOkay, HttpError, Result, Callback, Route, Handle, start};
 
 // ----------------------------------------------------------------------------
 
