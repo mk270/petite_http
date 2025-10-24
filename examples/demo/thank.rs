@@ -24,7 +24,7 @@ impl<'a> ph::Handle for Thank<'a> {
 
     fn handle_get(
         &mut self,
-        _path: Vec<String>,
+        _path: &[String],
         params: Self::Params,
     ) -> ph::Result {
         if "" != params.name && "" != params.greeting {

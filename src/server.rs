@@ -87,7 +87,7 @@ pub trait Handle {
     /// you construct filesystem paths from these `String`s.
     fn handle_get(
         &mut self,
-        path: Vec<String>,
+        path: &[String],
         params: Self::Params,
     ) -> self::Result;
 }
@@ -96,7 +96,7 @@ pub trait Handle {
 
 /// An argument type of `Route::route`.
 pub trait Callback {
-        fn handle_with(self, handler: &mut impl Handle) -> self::Result;
+    fn handle_with(self, handler: &mut impl Handle) -> self::Result;
 }
 
 
@@ -171,12 +171,12 @@ impl Server {
             if "" == last { path.pop(); }
         }
         // Make a callback.
-        struct Callback {
-            path: Vec<String>,
-            method: Method,
+        struct Callback<'a> {
+            path: &'a [String],
+            method: &'a Method,
             url: Url,
         }
-        impl self::Callback for Callback {
+        impl<'a> self::Callback for Callback<'a> {
             fn handle_with(self, handler: &mut impl Handle) -> self::Result {
                 // Parse the query parameters.
                 let params = self.url.query_pairs().map(
@@ -193,8 +193,8 @@ impl Server {
             }
         }
         router.route(&*path, Callback {
-            path: path.clone(),
-            method: request.method().clone(),
+            path: &*path,
+            method: request.method(),
             url: request_url,
         })
     }
