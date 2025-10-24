@@ -6,7 +6,8 @@ edition = "2024"
 [dependencies]
 tiny_http = "0.12"
 url = "2.4.1"
-url-escape = "0.1.1"
+idna_adapter = "=1.0.0" # Reduces dependency sprawl of "url".
+percent-encoding = "2.3.2"
 html-escape = "0.2.13"
 
 [[example]]

@@ -165,7 +165,7 @@ impl Server {
         println!("{} {}", request.remote_addr().unwrap().ip(), relative_url);
         // Parse the path segments.
         let mut path: Vec<String> = request_url.path_segments().ok_or(HttpError::Invalid)?.map(
-            |s| url_escape::decode(s).into_owned()
+            |s| percent_encoding::percent_decode(s.as_bytes()).decode_utf8().unwrap().into_owned()
         ).collect();
         if let Some(last) = path.last() {
             if "" == last { path.pop(); }
