@@ -1,6 +1,7 @@
 use std::{fmt};
 use std::error::{Error};
 use std::fs::{File};
+use std::io::{Seek};
 
 use tiny_http::{Method, Request, Response, Header};
 
@@ -12,7 +13,10 @@ use super::{content_types, html};
 #[derive(Debug)]
 pub enum HttpOkay {
     /// A static file.
-    File(File),
+    ///
+    /// If the content type is `None`, it will be inferred from the file
+    /// contents.
+    File {file: File, content_type: Option<&'static [u8]>},
 
     /// Dynamic HTML.
     Html(Box<dyn html::Escape>),
@@ -132,6 +136,13 @@ fn header(key: &'static [u8], value: &[u8]) -> tiny_http::Header {
     Header::from_bytes(key, value).unwrap() // depends only on data fixed at compile time
 }
 
+/// Get the MIME type of a `File` and rewind the `File`.
+fn get_mime_type(file: &mut File) -> std::io::Result<&'static [u8]> {
+    let mime_type = tika_magic::from_file(&file).ok_or_else(|| std::io::Error::other("error getting MIME type"))?;
+    file.rewind()?;
+    Ok(mime_type.as_bytes())
+}
+
 struct Server {
     /// Web server.
     pub server: tiny_http::Server,
@@ -203,8 +214,18 @@ impl Server {
     fn handle_requests(&self, mut router: impl Route) -> ! {
         for mut request in self.server.incoming_requests() {
             match self.handle_request(&mut router, &mut request) {
-                Ok(HttpOkay::File(file)) => {
-                    request.respond(Response::from_file(file))
+                Ok(HttpOkay::File {mut file, content_type}) => {
+                    let mime_type = content_type.ok_or(()).or_else(|()| get_mime_type(&mut file));
+                    match mime_type {
+                        Ok(mime_type) => {
+                            let header = header(CONTENT_TYPE, mime_type);
+                            request.respond(Response::from_file(file).with_header(header))
+                        },
+                        Err(e) => {
+                            println!("{}", e);
+                            request.respond(Response::from_string("Server error").with_status_code(500))
+                        }
+                    }
                 },
                 Ok(HttpOkay::Html(text)) => {
                     let header = header(CONTENT_TYPE, content_types::HTML);
