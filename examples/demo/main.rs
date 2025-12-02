@@ -47,7 +47,6 @@ impl Demo {
                 ("guest_book", self.guest_book()),
             ]),
         ))
-
     }
 }
 
