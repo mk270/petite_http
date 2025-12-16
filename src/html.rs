@@ -1,6 +1,6 @@
 //! Safely construct HTML from templates and user data.
 
-use std::{fmt};
+use std::{fmt, iter};
 
 pub use html_escape::{encode_text as escape};
 
@@ -96,6 +96,12 @@ impl Escape for Concat {
     fn escape(&self, out: &mut dyn fmt::Write) -> fmt::Result {
         for item in &self.0 { item.escape(out)?; }
         Ok(())
+    }
+}
+
+impl<A: 'static + Escape> iter::FromIterator<A> for Concat {
+    fn from_iter<T: IntoIterator<Item=A>>(iter: T) -> Self {
+        Self(iter.into_iter().map(|item| Box::new(item) as Box<dyn Escape>).collect())
     }
 }
 
