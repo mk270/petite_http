@@ -38,6 +38,10 @@ impl<T: fmt::Display + fmt::Debug> Escape for T {
     }
 }
 
+impl Escape for Box<dyn Escape> {
+    fn escape(&self, out: &mut dyn fmt::Write) -> fmt::Result { (**self).escape(out) }
+}
+
 // ----------------------------------------------------------------------------
 
 /// Assert that `S`'s string representation already includes all necessary
